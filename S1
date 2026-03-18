@@ -1,0 +1,1802 @@
+repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer:FindFirstChild("Data")
+_G.AutoSkill = true
+_G.Autohop = true
+wait(20)
+setfpscap(20)
+local args = {
+	"DisablePvP",
+	true
+}
+game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SettingsToggle"):FireServer(unpack(args))
+Player = {}
+ 
+function Player:GetStats()
+    return game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("GetPlayerStats"):InvokeServer()
+end
+ 
+function TeleportToCFrame(CFrame)
+ 
+    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame
+end
+ 
+ 
+function TeleportToEnemy(Enemy)
+    if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - Enemy.WorldPivot.Position).Magnitude > 200 and game.PlaceId ~= 99684056491472 and game.PlaceId ~= 75159314259063 then
+        print("Debug TP")
+        local args = {
+        "Starter"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("TeleportToPortal"):FireServer(unpack(args))
+        task.wait(.5)
+    end
+ 
+    if game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") and game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool").Name == "Combat" then
+        Height = 6
+    else
+        Height = 9
+    end
+ 
+    if not Enemy:FindFirstChild("HumanoidRootPart") then
+ 
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Enemy.WorldPivot * CFrame.new(0, Height, 0) * CFrame.Angles(math.rad(-90),0,0)
+ 
+    elseif Enemy:FindFirstChild("HumanoidRootPart") then
+            if Player:IsMeleeHave("Strongest In History") then
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, 8)
+            else
+            game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = Enemy.HumanoidRootPart.CFrame * CFrame.new(0, Height, 0) * CFrame.Angles(math.rad(-90),0,0)
+            end
+    end
+    --
+end
+ 
+ 
+ 
+function KillEnemy(Enemy)
+    local Humanoid = Enemy:FindFirstChildOfClass("Humanoid")
+    if Humanoid.Health > 0 then
+        --TeleportToEnemy(Enemy)
+        --
+        Player:EquipTool()
+        game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+    end
+ 
+    return
+end
+ 
+function KillEnemyByName(Enemy)
+    if Enemy == "SlimeWarrior" then
+        Enemy = "Slime"
+    end
+    for i,v in pairs(workspace.NPCs:GetChildren()) do
+        Name = v.Name:gsub("%d" , "")
+        if Name == Enemy and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") then
+            repeat task.wait()
+                Player:EquipTool()
+                TeleportToEnemy(v)
+ 
+                task.spawn(function()
+                    Player:UpgradeStat()
+                    game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                end)
+ 
+            until not v:FindFirstChild("Humanoid") or (v:FindFirstChild("Humanoid") and v.Humanoid.Health <= 0) or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+        elseif Name == Enemy and (not v:FindFirstChild("HumanoidRootPart") or not v:FindFirstChild("Humanoid")) then
+            TeleportToEnemy(v)
+        end
+    end
+    return
+end
+--game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+ 
+_G.NoClip = true
+local NoclipNotDup = tostring(math.random(10000000,99999999))
+local shp = sethiddenproperty or set_hidden_property or set_hidden_prop or sethiddenprop
+spawn(function()
+    game:GetService("RunService").Stepped:Connect(function()
+        local HumNoid = game.Players.LocalPlayer.Character:WaitForChild("Humanoid")
+        local HumNoidRoot = game.Players.LocalPlayer.Character.PrimaryPart
+ 
+        if _G.NoClip then
+            if HumNoid:GetState() == Enum.HumanoidStateType.Seated or HumNoid.Health <= 0 then
+                HumNoid.Jump = true
+                HumNoid.Sit = false
+                if HumNoidRoot:FindFirstChild("NoClip"..NoclipNotDup) then
+                    HumNoidRoot:FindFirstChild("NoClip"..NoclipNotDup):Destroy()
+                end
+            end
+            if HumNoid.Sit == false and HumNoid.Health > 0 then
+                for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = false
+                    end
+                end
+            else
+                HumNoid.Sit = false
+            end
+ 
+            if not HumNoidRoot:FindFirstChild("NoClip"..NoclipNotDup) and HumNoid.Sit == false then
+                local bv = Instance.new("BodyVelocity")
+                bv.Parent = HumNoidRoot
+                bv.Name = "NoClip"..NoclipNotDup
+                bv.MaxForce = Vector3.new(math.huge,math.huge,math.huge)
+                bv.Velocity = Vector3.new(0,0,0)
+            end
+        else
+            HumNoid.PlatformStand = false
+            if HumNoidRoot:FindFirstChild("NoClip"..NoclipNotDup) then
+                HumNoidRoot:FindFirstChild("NoClip"..NoclipNotDup):Destroy()
+            end
+        end
+    end)
+end)
+ 
+--
+ 
+ 
+-- ที่วาง module
+ 
+function Player:GetQuest()
+    Quest = require(game:GetService("ReplicatedStorage").Modules.QuestConfig)
+    Stats = Player:GetStats()
+    bestquest = nil
+    Level = Stats.Level
+    nm = nil
+    dist = -math.huge
+    for i,v in pairs(Quest.RepeatableQuests) do
+        if v.requirements and v.requirements[1] and v.requirements[1].amount and v.requirements[1].amount > 1 and Level >= v.recommendedLevel then
+ 
+            if dist < v.recommendedLevel then
+                dist = v.recommendedLevel
+                bestquest = v
+                nm = tostring(i)
+            end
+        end
+    end
+    return bestquest , nm
+end
+ 
+--
+ 
+UpdateInventory = game:GetService("ReplicatedStorage").Remotes.UpdateInventory
+ 
+UpdateInventory.OnClientEvent:Connect(function(...)
+    a,b = ...
+    _G[a.."Inventory"] = b
+end)
+ 
+function Player:IsSwordHave(name)
+    for i,v in pairs(_G.SwordInventory or {}) do
+        if v.name == name then
+            return true
+        end
+    end
+    return false
+end
+ 
+function Player:IsMeleeHave(name)
+    if _G.MeleeInventory then
+        for i,v in pairs(_G.MeleeInventory) do
+            if v.name == name then
+                return v
+            end
+        end
+        return nil
+    end
+    return nil
+end
+ListSword = {
+    "Katana",
+    "Dark Blade",
+    "Saber",
+    "Ichigo",
+    "Strongest In History"
+}
+ 
+function SwordMustUse()
+    xxx = nil
+    for i,v in pairs(ListSword) do
+        if Player:IsSwordHave(v) then
+            xxx = v
+        end
+    end
+    if Player:IsMeleeHave("Strongest In History") then
+        xxx = "Strongest In History"
+    end
+    return xxx or "Combat"
+end
+ 
+ 
+function Player:UpgradeStat()
+    local Stats = Player:GetStats()
+    Sword = SwordMustUse()
+    if Player:IsMeleeHave("Strongest In History") and (Stats.StatPoints + Stats.Stats.Melee) < 11500 and Stats.Stats.Melee < 11500 and Stats.StatPoints ~= 0 then
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ResetStats"):FireServer()
+        return
+    end
+ 
+    Quest = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text
+    if Quest == "Path to Haki 1" or Quest == "Path to Haki 2" or Quest == "Path to Haki Final" and Stats.StatPoints > 1 then
+        if (Stats.StatPoints + Stats.Stats.Melee) < 50 then
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ResetStats"):FireServer()
+        end
+        if Stats.StatPoints > 0 and Stats.Stats.Melee < 300 then
+            print("Hello")
+            local args = {
+                "Melee",
+                1
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("AllocateStat"):FireServer(unpack(args))
+            return
+        end
+        return
+    end
+ 
+    if (Player:IsMeleeHave("Strongest In History") or Sword == "Combat") and Stats.Stats.Melee < 11500 then 
+        if Stats.StatPoints > 0 then
+            local args = {
+                "Melee",
+                1
+            }
+ 
+            game:GetService("ReplicatedStorage")
+                :WaitForChild("RemoteEvents")
+                :WaitForChild("AllocateStat")
+                :FireServer(unpack(args))
+            return 
+        end
+    end
+ 
+ 
+    if Stats.StatPoints > 0 then
+        local Melee = Stats.Stats.Melee
+        local Sword = Stats.Stats.Sword
+        local Defense = Stats.Stats.Defense
+ 
+ 
+        if Melee > 0 and not Player:IsMeleeHave("Strongest In History") then
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ResetStats"):FireServer()
+        end
+ 
+        local statToAdd
+ 
+        if Sword < 11500 then
+            if Sword >= Defense * 5 then
+                statToAdd = "Defense"
+            else
+                statToAdd = "Sword"
+            end
+        else
+            statToAdd = "Defense"
+        end
+ 
+        local args = {
+            statToAdd,
+            1
+        }
+ 
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("RemoteEvents")
+            :WaitForChild("AllocateStat")
+            :FireServer(unpack(args))
+    end
+end
+ 
+task.spawn(function()
+    while wait(2) do
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RequestInventory"):FireServer()
+    end
+end)
+ 
+function GetItemByName(name)
+    for i,v in pairs(_G.ItemsInventory or {}) do
+        if v.name == name then
+            return v
+        end
+    end
+end
+ 
+function Player:EquipTool(name)
+    Sword = name or SwordMustUse()
+    if not game:GetService("Players").LocalPlayer.Backpack:FindFirstChild(Sword) and not game:GetService("Players").LocalPlayer.Character:FindFirstChild(Sword) and (Player:IsSwordHave(Sword) or Player:IsMeleeHave(Sword)) then
+        local args = {
+            "Equip",
+            Sword
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipWeapon"):FireServer(unpack(args))
+    end
+ 
+    if not game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") or game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool").Name ~= Sword then
+        for i,v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
+            if v:IsA("Tool") and v.Name == (Sword or "Combat") then
+                game.Players.LocalPlayer.Character.Humanoid:EquipTool(v)
+                break
+            end
+        end
+    end
+end
+ 
+function AutoSkill()
+    task.wait(.2)
+    local args = {
+        "AutoSkillX",
+        true
+    }
+    game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SettingsToggle"):FireServer(unpack(args))
+ 
+end
+ 
+task.spawn(function()
+    while wait(.1) do
+        pcall(function()
+            if _G.AutoSkill then
+                AutoSkill()
+            end
+        end)
+    end
+end)
+ 
+BossList = {
+    "Jinwoo",
+    "Alucard",
+    "Yuji",
+    "Gojo",
+    "Sukuna",
+    "Saber"
+}
+ 
+local PlaceID = game.PlaceId
+local AllIDs = {}
+local foundAnything = ""
+local actualHour = os.date("!*t").hour
+local Deleted = false
+local File = pcall(function()
+    AllIDs = game:GetService('HttpService'):JSONDecode(readfile("NotSameServers.json"))
+end)
+if not File then
+    table.insert(AllIDs, actualHour)
+    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+end
+ 
+function TPReturner()
+    local Site;
+ 
+    Site = game.HttpService:JSONDecode(game:HttpGet("http://104.194.154.62:8080/get_server?map=SAILOR"))
+    print("Bypass Rate Limit")
+ 
+    table.foreach(Site , print)
+ 
+    local ID = ""
+    local PossibleServers = {} -- เพิ่มไว้เก็บ server ที่เข้าได้
+ 
+    if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+        foundAnything = Site.nextPageCursor
+    end
+ 
+    local num = 0;
+ 
+    for i,v in pairs(Site.data) do
+        local Possible = true
+        ID = tostring(v.id)
+ 
+        if tonumber(v.maxPlayers) > tonumber(v.playing) then
+            for _,Existing in pairs(AllIDs) do
+                if num ~= 0 then
+                    if ID == tostring(Existing) then
+                        Possible = false
+                    end
+                else
+                    if tonumber(actualHour) ~= tonumber(Existing) then
+                        local delFile = pcall(function()
+                            delfile("NotSameServers.json")
+                            AllIDs = {}
+                            table.insert(AllIDs, actualHour)
+                        end)
+                    end
+                end
+                num = num + 1
+            end
+ 
+            if Possible == true then
+                table.insert(PossibleServers, ID) -- เก็บไว้ก่อน
+            end
+        end
+    end
+ 
+    -- สุ่ม server
+    if #PossibleServers > 0 then
+        local RandomID = PossibleServers[math.random(1,#PossibleServers)]
+ 
+        table.insert(AllIDs, RandomID)
+ 
+        wait()
+        pcall(function()
+            writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+            wait()
+            game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, RandomID, game.Players.LocalPlayer)
+        end)
+        wait(.5)
+    end
+end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local RADIUS = 30 -- 🔥 ปรับระยะตรงนี้
+local MAX_NEAR = 2 -- 🔥 เกินกี่คนถึงจะ hop
+
+local circle = Instance.new("Part")
+circle.Shape = Enum.PartType.Cylinder
+circle.Anchored = true
+circle.CanCollide = false
+circle.Transparency = 0.7
+circle.Color = Color3.fromRGB(0, 170, 255)
+circle.Material = Enum.Material.Neon
+circle.Size = Vector3.new(0.1, RADIUS*2, RADIUS*2)
+circle.Name = "RangeCircle"
+circle.Parent = workspace
+
+-- หมุนให้นอนราบ
+circle.Orientation = Vector3.new(0,0,90)
+
+-- อัพเดทตำแหน่งวงกลม
+RunService.RenderStepped:Connect(function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        circle.Position = char.HumanoidRootPart.Position - Vector3.new(0,3,0)
+    end
+end)
+
+local function CountNearbyPlayers(radius)
+    local count = 0
+    local myChar = LocalPlayer.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return 0 end
+
+    local myPos = myChar.HumanoidRootPart.Position
+
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - myPos).Magnitude
+            if dist <= radius then
+                count += 1
+            end
+        end
+    end
+
+    return count
+end
+
+task.spawn(function()
+    local startTime = tick()
+    AllIDs = AllIDs or {}
+
+    while _G.Autohop do
+        task.wait(3)
+
+        local nearby = CountNearbyPlayers(RADIUS)
+        print("คนใกล้ตัว:", nearby)
+
+        if nearby > MAX_NEAR then
+            print("คนเยอะเกิน → Hop!")
+
+            local Site = game.HttpService:JSONDecode(game:HttpGet("http://104.194.154.62:8080/get_server?map=SAILOR"))
+
+            local PossibleServers = {}
+
+            for i,v in pairs(Site.data) do
+                local ID = tostring(v.id)
+                local playing = tonumber(v.playing)
+                local max = tonumber(v.maxPlayers)
+
+                if max > playing then
+                    if not table.find(AllIDs, ID) then
+                        table.insert(PossibleServers, ID)
+                    end
+                end
+            end
+
+            if #PossibleServers > 0 then
+                task.wait(math.random(1,5))
+
+                -- shuffle
+                for i = #PossibleServers, 2, -1 do
+                    local j = math.random(1, i)
+                    PossibleServers[i], PossibleServers[j] = PossibleServers[j], PossibleServers[i]
+                end
+
+                local Pick = PossibleServers[1]
+                table.insert(AllIDs, Pick)
+
+                print("Teleporting:", Pick)
+
+                pcall(function()
+                    writefile("NotSameServers.json", game:GetService('HttpService'):JSONEncode(AllIDs))
+                    game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, Pick, LocalPlayer)
+                end)
+
+                break
+            end
+        end
+    end
+end)
+ 
+function Teleport()
+    while wait() do
+        pcall(function()
+            TPReturner()
+            if foundAnything ~= "" then
+                TPReturner()
+            end
+        end)
+    end
+end
+ 
+ 
+--
+AccessoryConfig = require(game:GetService("ReplicatedStorage").Modules.AccessoryConfig)
+ 
+function IsHaveAccessories(name)
+    if _G.AccessoriesInventory then
+        for i,v in pairs(_G.AccessoriesInventory) do
+            if v.name == name then
+                return true
+            end
+        end
+        return false
+    end
+end
+ 
+function EquipBestAccessories()
+    local best = nil
+    local bestDmg = 0
+ 
+    for i, v in pairs(AccessoryConfig.Accessories) do
+        if v.stats and v.stats.Damage and IsHaveAccessories(tostring(i)) then
+            if v.stats.Damage > bestDmg then
+                bestDmg = v.stats.Damage
+                best = i
+            end
+        end
+    end
+    Check = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GetAccessoryEquipped"):InvokeServer()
+    if best and Check.Stats ~= best then
+        local args = {
+            "EquipStats",
+            best
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipAccessory"):FireServer(unpack(args))
+    end
+end
+ 
+function OpenChest()
+    if _G.ItemsInventory then
+        for i,v in pairs(_G.ItemsInventory) do
+            if v.name == "Common Chest" and v.quantity > 0 then
+                local args = {
+                    "Use",
+                    "Common Chest",
+                    v.quantity,
+                    false
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+            elseif v.name == "Rare Chest" and v.quantity > 0 then
+                local args = {
+                    "Use",
+                    "Rare Chest",
+                    v.quantity,
+                    false
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+            elseif v.name == "Epic Chest" and v.quantity > 0 then
+                local args = {
+                    "Use",
+                    "Epic Chest",
+                    v.quantity,
+                    false
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+            elseif v.name == "Legendary Chest" and v.quantity > 0 then
+                local args = {
+                    "Use",
+                    "Legendary Chest",
+                    v.quantity,
+                    false
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+            elseif v.name == "Mythical Chest" and v.quantity > 0 then
+                local args = {
+                    "Use",
+                    "Mythical Chest",
+                    v.quantity,
+                    false
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+            end
+        end
+    end
+end
+ 
+ 
+function GetBestRune()
+    if not _G.RunesInventory then return end
+ 
+    if _G.RunesInventory["Fortune Rune"] then
+        return "Fortune Rune"
+    else
+        for i,v in pairs(_G.RunesInventory) do
+            return i
+        end
+    end
+end
+ 
+function EquipBestRune()
+    Stats = Player:GetStats()
+    RuneBest = GetBestRune()
+    if RuneBest and Stats.RuneEquipped ~= RuneBest then
+        print("Equip Rune: "..RuneBest)
+        local args = {
+            "Equip",
+            RuneBest
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipRune"):FireServer(unpack(args))
+    end
+end
+ 
+ 
+local Rarity = {
+    "Mythic",
+    "Legendary",
+    "Epic",
+    "Rare",
+    "Uncommon",
+    "Common"
+}
+
+local RarityRank = {}
+for i, v in ipairs(Rarity) do
+    RarityRank[v] = i
+end
+
+local TARGET_SET = "Celestial Rupture"
+local TARGET_RARITY = "Legendary"
+
+function EquipBestArtifact()
+    local RS = game:GetService("ReplicatedStorage")
+    local GetArtifactData = RS:WaitForChild("RemoteFunctions"):WaitForChild("GetArtifactData")
+    local ArtifactEquip = RS:WaitForChild("RemoteEvents"):WaitForChild("ArtifactEquip")
+    local ArtifactDelete = RS:WaitForChild("RemoteEvents"):WaitForChild("ArtifactDelete")
+    local ArtifactUpgrade = RS:WaitForChild("RemoteEvents"):WaitForChild("ArtifactUpgrade")
+
+    local MAX_LEVEL = 15
+    local DELAY = 0.3
+
+    local ArtifactData = GetArtifactData:InvokeServer()
+    local Inventory = ArtifactData["Inventory"]
+    local Equipped = ArtifactData["Equipped"]
+
+    local bestByCategory = {
+        Helmet = { uuid = nil, value = -1, rarity = math.huge, isPerfect = false },
+        Body = { uuid = nil, value = -1, rarity = math.huge, isPerfect = false },
+        Gloves = { uuid = nil, value = -1, rarity = math.huge, isPerfect = false },
+        Boots = { uuid = nil, value = -1, rarity = math.huge, isPerfect = false },
+    }
+
+    for uuid, artifact in pairs(Inventory) do
+        local category = artifact["Category"]
+        if bestByCategory[category] then
+            local value = artifact["MainStat"]["Value"] or 0
+            local rarityName = artifact["Rarity"]
+            local rarity = RarityRank[rarityName] or math.huge
+
+            local isPerfect = (artifact["Set"] == TARGET_SET and rarityName == TARGET_RARITY)
+
+            local best = bestByCategory[category]
+
+            -- 🔥 PRIORITY สูงสุด: Set + Legendary
+            if isPerfect then
+                if not best.isPerfect or value > best.value then
+                    best.uuid = uuid
+                    best.value = value
+                    best.rarity = rarity
+                    best.isPerfect = true
+                end
+            else
+                -- fallback (เฉพาะกรณีที่ยังไม่มีของ perfect)
+                if not best.isPerfect then
+                    if rarity < best.rarity or (rarity == best.rarity and value > best.value) then
+                        best.uuid = uuid
+                        best.value = value
+                        best.rarity = rarity
+                    end
+                end
+            end
+        end
+    end
+
+    local bestUUIDs = {}
+    for _, data in pairs(bestByCategory) do
+        if data.uuid then
+            bestUUIDs[data.uuid] = true
+        end
+    end
+
+    -- equip
+    for category, data in pairs(bestByCategory) do
+        if data.uuid then
+            if not (Equipped and Equipped[category] == data.uuid) then
+                ArtifactEquip:FireServer(data.uuid)
+                task.wait(DELAY)
+            end
+        end
+    end
+
+    -- delete (ไม่ลบของ Perfect)
+    for uuid, artifact in pairs(Inventory) do
+        local category = artifact["Category"]
+        local isPerfect = (artifact["Set"] == TARGET_SET and artifact["Rarity"] == TARGET_RARITY)
+
+        if bestByCategory[category]
+        and not bestUUIDs[uuid]
+        and artifact["Rarity"] ~= "Legendary"
+        and not isPerfect then
+
+            ArtifactDelete:FireServer(uuid)
+            task.wait(DELAY)
+        end
+    end
+
+    -- upgrade
+    for _, data in pairs(bestByCategory) do
+        if data.uuid then
+            local artifact = Inventory[data.uuid]
+            local currentLevel = artifact["Level"] or 0
+
+            if currentLevel < MAX_LEVEL then
+                ArtifactUpgrade:FireServer(data.uuid, 1)
+                task.wait(DELAY)
+            end
+        end
+    end
+end
+
+Clans = {
+    "Monarch",
+    "Pride",
+    "Alter",
+    "Espada",
+}
+ 
+function ClanReroll()
+    ClanReroll_1 = GetItemByName("Clan Reroll")
+    Stats = Player:GetStats()
+    if ClanReroll_1 and ClanReroll_1.quantity > 0 and not table.find(Clans , Stats.Inventory.Equipped.Clan) then
+        local args = {
+            "Use",
+            "Clan Reroll",
+            1,
+            true
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+        return true
+    end
+    return nil
+end
+ 
+Races = {
+    "Kitsune",
+}
+ 
+function RaceReroll()
+    RaceReroll_1 = GetItemByName("Race Reroll")
+    Stats = Player:GetStats()
+    if RaceReroll_1 and RaceReroll_1.quantity > 0 and not table.find(Races , Stats.Inventory.Equipped.Race) then
+        local args = {
+            "Use",
+            "Race Reroll",
+            1,
+            true
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+        return true
+    end
+    return nil
+end
+local function GetNearestNPC()
+    local nearest = nil
+    local nearestDist = math.huge
+    local myPos = game.Players.LocalPlayer.Character
+        and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+ 
+    if not myPos then return nil end
+ 
+    for _, v in pairs(workspace.NPCs:GetChildren()) do
+        v.Name = v.Name:gsub("%d" , "")
+        if not v.Name:find("Boss") and not v.Name:find("Dummy") and table.find({"Thief" , "Monkey" , "DesertBandit" , "FrostRogue" , "Hollow"} , v.Name) then
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            local hum = v:FindFirstChildOfClass("Humanoid")
+ 
+            if hrp and hum then
+                if hum.Health > 0 then
+                    local dist = (hrp.Position - myPos.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = v
+                    end
+                end
+            else
+                -- ไม่มี HumanoidRootPart ใช้ WorldPivot แทน (ไม่เช็คเลือด)
+                local dist = (v:GetPivot().Position - myPos.Position).Magnitude
+                if dist < nearestDist then
+                    nearestDist = dist
+                    nearest = v
+                end
+            end
+        end
+    end
+ 
+    return nearest
+end
+
+local function GetNearestNPCXKUY()
+    local nearest = nil
+    local nearestDist = math.huge
+    local myPos = game.Players.LocalPlayer.Character
+        and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+ 
+    if not myPos then return nil end
+ 
+    for _, v in pairs(workspace.NPCs:GetChildren()) do
+        v.Name = v.Name:gsub("%d" , "")
+        if not v.Name:find("Boss") and not v.Name:find("Dummy") and table.find({"Slime"} , v.Name) then
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            local hum = v:FindFirstChildOfClass("Humanoid")
+ 
+            if hrp and hum then
+                if hum.Health > 0 then
+                    local dist = (hrp.Position - myPos.Position).Magnitude
+                    if dist < nearestDist then
+                        nearestDist = dist
+                        nearest = v
+                    end
+                end
+            else
+                local dist = (v:GetPivot().Position - myPos.Position).Magnitude
+                if dist < nearestDist then
+                    nearestDist = dist
+                    nearest = v
+                end
+            end
+        end
+    end
+ 
+    return nearest
+end
+ 
+function AutoBossHop(name)
+    Have = false
+    for i,v in pairs(workspace.NPCs:GetChildren()) do
+        if v.Name == name then
+            Have = true
+        end
+    end
+    for i,v in pairs(workspace.NPCs:GetChildren()) do
+        if v.Name == name then
+            repeat task.wait()
+                Player:EquipTool()
+                TeleportToEnemy(v)
+ 
+                task.spawn(function()
+                    Player:UpgradeStat()
+                    game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                end)
+ 
+            until v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChildOfClass("Humanoid") or not v:FindFirstChild("HumanoidRootPart")
+        end
+    end
+ 
+    if Have == false then
+        -- hopserver
+ 
+        while wait(.5) do
+            print("Hopping Server...")
+            Teleport()
+        end
+ 
+    end
+end
+ 
+function Player:AutoAscend()
+    Ascend = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("GetAscendData"):InvokeServer()
+    Level = game:GetService("Players").LocalPlayer.Data.Level.Value
+    if Level < 8000 or not Player:IsMeleeHave("Strongest In History") then
+        return
+    end
+    if Ascend.level == 0 and Level >= 2500 then
+        print(1)
+        if Ascend.requirements[3].completed == false then
+            --
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name:find("Boss") then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until not v:FindFirstChildOfClass("Humanoid") or v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+ 
+            return
+        end
+        task.wait(.1)
+        game:GetService("ReplicatedStorage").RemoteEvents.RequestAscend:FireServer()
+ 
+        return true
+    elseif Ascend.level == 1 and Level >= 5000 then
+        print(2)
+        if Ascend.requirements[3].completed == false then
+            --
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name:find("Boss") then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until not v:FindFirstChildOfClass("Humanoid") or v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+            return
+ 
+        elseif Ascend.requirements[6].completed == false or Ascend.requirements[7].completed == false then
+            print(3)
+            Have = false
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name == "GojoBoss" then
+                    Have = true
+                end
+            end
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name == "GojoBoss" then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            Player:UpgradeStat()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChildOfClass("Humanoid") or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+ 
+            if Have == false then
+                -- hopserver
+ 
+                while wait(.5) do
+                    print("Hopping Server... Boss")
+                    Teleport()
+                end
+ 
+            end
+        end
+        print(Ascend.level)
+        task.wait(.1)
+        game:GetService("ReplicatedStorage").RemoteEvents.RequestAscend:FireServer()
+ 
+ 
+        return true
+    -- elseif Ascend.level == 2 then
+    --     print(4)
+    --     if Ascend.requirements[6].completed == false then
+    --         --
+    --         DungeonKey = GetItemByName("Dungeon Key")
+    --         if DungeonKey and DungeonKey.quantity > 0 then
+    --             if not workspace:FindFirstChild("ActiveDungeonPortal") then
+    --                 TeleportToEnemy(workspace.ServiceNPCs.DungeonPortalsNPC)
+    --                 local args = {
+    --                     "CidDungeon"
+    --                 }
+    --                 game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RequestDungeonPortal"):FireServer(unpack(args))
+ 
+    --                 return true
+    --             elseif workspace:FindFirstChild("ActiveDungeonPortal") then
+    --                 TeleportToEnemy(workspace.ServiceNPCs.DungeonPortalsNPC)
+    --                 return true
+    --             end
+    --         end
+    --         return true
+    --     elseif Ascend.requirements[7].completed == false then
+    --         print(5)
+    --         AutoBossHop("Sukuna")
+    --         return true
+    --     elseif Ascend.requirements[8].completed == false then
+    --         print(6)
+    --         AutoBossHop("Jinwoo")
+    --         return true
+    --     end
+    end
+end
+ 
+local vu = game:GetService("VirtualUser")
+game:GetService("Players").LocalPlayer.Idled:connect(function()
+vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+wait(1)
+vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+end)
+ 
+function IsStrongHave()
+    VesselRing , Soul , CursedFlesh = GetItemByName("Vessel Ring") or {quantity = 0} , GetItemByName("Malevolent Soul") or {quantity = 0} , GetItemByName("Cursed Flesh") or {quantity = 0}
+    Titles = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GetTitlesData"):InvokeServer()
+ 
+    if table.find(Titles.unlocked , "Disgraced One") and Titles.equipped ~= "Disgraced One" then
+        local args = {
+            "Disgraced One"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("TitleEquip"):FireServer(unpack(args))
+    end
+    if VesselRing.quantity >= 7 and Soul.quantity >= 3 and CursedFlesh.quantity >= 1 and Titles.equipped == "Disgraced One" and (not _G.GOFARM or (GetItemByName("Awakened Cursed Finger") and GetItemByName("Awakened Cursed Finger").quantity >= 1)) then
+        TeleportToEnemy(workspace.ServiceNPCs.StrongestinHistoryBuyerNPC)
+        task.wait(0.1)
+        fireproximityprompt(workspace.ServiceNPCs.StrongestinHistoryBuyerNPC.HumanoidRootPart.BuyerPrompt)
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(3)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        return true
+    end
+end
+ 
+game:GetService("ReplicatedStorage").Remotes.ShowNotification.OnClientEvent:Connect(function(...)
+    a,b = ...
+    if typeof(b) == "table" and b.message and b.message:find("Awakened") then
+        -- eat
+        if GetItemByName("Awakened Cursed Finger") and GetItemByName("Awakened Cursed Finger").quantity >= 1 then
+            local args = {
+                "Use",
+                "Awakened Cursed Finger",
+                1,
+                false
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("UseItem"):FireServer(unpack(args))
+        elseif GetItemByName("Awakened Cursed Finger") and GetItemByName("Awakened Cursed Finger").quantity < 1 then
+            _G.GOFARM = true
+        end
+    end
+end)
+
+local function HasSaberBoss()
+    for i,v in pairs(workspace.NPCs:GetChildren()) do
+        local name = v.Name:gsub("%d","")
+        if name == "SaberBoss" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            return true
+        end
+    end
+    return false
+end
+
+local SkillConfig = {
+    {name = "Luck", levels = {15,25,50,75,100}},
+    {name = "CritCh", levels = {5,6,10,15,25}},
+    {name = "CritDmg", levels = {3,6,10,15,25}},
+    {name = "Damage", levels = {3,6,10,15,25}},
+    {name = "HP", levels = {2,5,8,13,20}}
+}
+
+function Player:SwordStep()
+    Money = game:GetService("Players").LocalPlayer.Data.Money.Value
+    Gems = game:GetService("Players").LocalPlayer.Data.Gems.Value
+    Level = game:GetService("Players").LocalPlayer.Data.Level.Value
+    Sword = SwordMustUse()
+    PlayerStats = Player:GetStats()
+    RuneLevel = PlayerStats.RuneProgression.Level
+    ArtifactData = game:GetService("ReplicatedStorage"):WaitForChild("RemoteFunctions"):WaitForChild("GetArtifactData"):InvokeServer()
+    if ArtifactData.Unlocked == false and Money >= 500000 and Gems >= 500 and Level >= 2500 then
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ArtifactUnlockSystem"):FireServer()
+        return true
+    end
+    SkillTreeData = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("GetSkillTreeData"):InvokeServer()
+    if SkillTreeData.Unlocked == false and Level >= 7500 and Gems >= 1000 then
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SkillTreeUnlock"):FireServer()
+    elseif SkillTreeData.Unlocked then
+        for _, skill in ipairs(SkillConfig) do
+            for level, cost in ipairs(skill.levels) do
+                local key = skill.name .. "_" .. level
+                if not SkillTreeData.Nodes[key] and SkillTreeData.SkillPoints >= cost then
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SkillTreeUpgrade"):FireServer(key)
+                end
+            end
+        end
+    end
+
+    Titles = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GetTitlesData"):InvokeServer()
+ 
+    for i,v in pairs({"Destiny Marked" , "Blessed Sovereign" , "The Chosen One" , "Blessed One" , "Lucky Star" , "Fortune Seeker" , "Lucky Novice"}) do
+        if table.find(Titles.unlocked , v) then
+            Best = v
+            break
+        end
+    end
+ 
+    if Best and Titles.equipped ~= Best then
+        local args = {
+            Best
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("TitleEquip"):FireServer(unpack(args))
+    end
+ 
+ 
+    Found = false
+    for i,v in pairs(workspace.NPCs:GetChildren()) do
+        if v.Name:find("StrongestinHistoryBoss") then
+            Found = true
+        end
+    end
+ 
+    if Money >= 2500 and not Player:IsSwordHave("Katana") then
+        TeleportToEnemy(workspace.ServiceNPCs.Katana)
+        fireproximityprompt(workspace.ServiceNPCs.Katana.HumanoidRootPart.KatanaShopPrompt)
+        return true
+    elseif Money >= 250000 and Gems >= 150 and not Player:IsSwordHave("Dark Blade") then
+        TeleportToEnemy(workspace.ServiceNPCs.DarkBladeNPC)
+        fireproximityprompt(workspace.ServiceNPCs.DarkBladeNPC.HumanoidRootPart.DarkBladeShopPrompt)
+        return true
+    elseif Level >= 8000 and not Player:IsSwordHave("Saber") then
+ 
+        -- hop server
+        BossTicket = GetItemByName("Boss Ticket")
+        if BossTicket and BossTicket.quantity >= 65 then
+            local args = {
+                "Saber"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ExchangeItem"):InvokeServer(unpack(args))
+        else
+            Have = false
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                v.Name = v.Name:gsub("Boss" , "")
+                if table.find(BossList, v.Name) then
+                    Have = true
+                end
+            end
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                v.Name = v.Name:gsub("Boss" , "")
+                if table.find(BossList, v.Name) then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until not v:FindFirstChildOfClass("Humanoid") or v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+ 
+            if Have == false then
+                -- hopserver
+ 
+                while wait(.5) do
+                print("Hopping Server...")
+                Teleport()
+                end
+ 
+ 
+            end
+        end
+ 
+ 
+        return true
+    elseif Level >= 8000 and not Player:IsMeleeHave("Strongest In History") or (Found and Level >= 8000) then
+ 
+        if IsStrongHave() then
+            return true
+        end
+ 
+        Key = GetItemByName("Malevolent Key")
+ 
+        Found = false
+        for i,v in pairs(workspace.NPCs:GetChildren()) do
+            if v.Name:find("StrongestinHistoryBoss") then
+                Found = true
+            end
+        end
+ 
+        if (Key and Key.quantity > 0) or Found then
+ 
+            if not Found then
+                TeleportToEnemy(workspace.ServiceNPCs.StrongestBossSummonerNPC)
+                local args = {
+                    "StrongestHistory",
+                    "Normal"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RequestSpawnStrongestBoss"):FireServer(unpack(args))
+            elseif Found then
+                for i,v in pairs(workspace.NPCs:GetChildren()) do
+                    if v.Name:find("StrongestinHistoryBoss") then
+                        repeat task.wait()
+                            Player:EquipTool()
+                            TeleportToEnemy(v)
+ 
+                            task.spawn(function()
+                                Player:UpgradeStat()
+                                game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                            end)
+ 
+                        until not v:FindFirstChildOfClass("Humanoid") or v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+                    end
+                end
+            end
+        else
+            -- ฟามบอสสุคุนะ + hop
+            -- SukunaBoss
+            Have = false
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name == "SukunaBoss" then
+                    Have = true
+                end
+            end
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                if v.Name == "SukunaBoss" then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            Player:UpgradeStat()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChildOfClass("Humanoid") or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+ 
+            if Have == false then
+                -- hopserver
+ 
+                while wait(.5) do
+                    print("Hopping Server...")
+                    Teleport()
+                end
+ 
+            end
+ 
+        end
+        return true
+    elseif Level >= 11500 and RuneLevel < 50 then
+        local enemy = GetNearestNPC()
+ 
+        if enemy then
+            Player:EquipTool()
+            repeat
+                task.wait()
+                TeleportToEnemy(enemy)
+ 
+                task.spawn(function()
+                    game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                end)
+            until not _G.AutoFarm or not enemy.Parent or not enemy:FindFirstChildOfClass("Humanoid")  or enemy.Humanoid.Health <= 0 or not enemy:FindFirstChild("HumanoidRootPart")
+        else
+            task.wait(0.1)
+        end
+        return true
+    elseif Level >= 11500 and RuneLevel == 50 then
+        Titles = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GetTitlesData"):InvokeServer() 
+        print("------------------------------------------") 
+        if not table.find(Titles.unlocked, "Destiny Marked") and GetItemByName("Boss Key") then
+            
+            -- 🔥 เช็คก่อน
+            if not HasSaberBoss() then
+                print("เสกบอสไอสัส")
+                TeleportToEnemy(workspace.ServiceNPCs.SummonBossNPC)
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RequestSummonBoss"):FireServer("SaberBoss")
+            end
+
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                v.Name = v.Name:gsub("%d","")
+
+                if v.Name == "SaberBoss" and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") then
+                    
+                    repeat task.wait()
+                        task.spawn(function()
+                            Player:UpgradeStat()
+                            Player:EquipTool("Strongest In History")
+                        end)
+
+                        TeleportToEnemy(v)
+
+                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SettingsToggle"):FireServer("AutoSkillX", true)
+                        game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+
+                    until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0
+                end
+            end
+            return true
+        else
+            local enemy = GetNearestNPCXKUY()
+            if enemy then
+                Player:EquipTool()
+                repeat
+                    task.wait()
+                    TeleportToEnemy(enemy)
+
+                    task.spawn(function()
+                        game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                    end)
+                until not _G.AutoFarm or not enemy.Parent or not enemy:FindFirstChildOfClass("Humanoid")  or enemy.Humanoid.Health <= 0 or not enemy:FindFirstChild("HumanoidRootPart")
+            else
+                task.wait(0.1)
+            end
+            return true
+        end
+    end
+    return
+end
+
+--[[
+Size {
+{0, 0}, {1, 0}
+{0.166666687, 0}, {1, 0}
+{0.333333343, 0}, {1, 0}
+{0.5, 0}, {1, 0}
+{0.666666687, 0}, {1, 0}
+{0.833333313, 0}, {1, 0}
+}
+]] 
+function Player:AutoDungeon()
+    Dungeon = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DungeonMerchantRemotes"):WaitForChild("GetDungeonMerchantStock"):InvokeServer()
+    Quest = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text
+    Chake = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Reward.RewardExp.CurrencyIndicator.CurrencyIndicator.Text
+    Level = game:GetService("Players").LocalPlayer.Data.Level.Value
+ 
+    if Level >= 5000 then
+        print(Quest)
+        if Quest == "Dungeon Discovery" then
+            QuestCheck = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestProgress.Holder.LoaderHolder.Loader.Size
+ 
+            scaleX = tonumber(string.format("%.2f", QuestCheck.X.Scale))
+ 
+            print(scaleX)
+ 
+            if scaleX == 0.00 then
+                TeleportToCFrame(CFrame.new(89.9129028, 8.48682785, -136.653168, 0.990270376, 0, -0.13915664, 0, 1, 0, 0.13915664, 0, 0.990270376))
+                task.wait(.4)
+                fireproximityprompt(workspace.StarterIsland.DungeonPuzzlePiece.PuzzlePrompt)
+ 
+            elseif scaleX == 0.17 then
+                TeleportToCFrame(CFrame.new(-396.155457, -0.644790649, 510.067932, 0.369634688, 0.120474108, -0.921333969, -0.264767796, 0.96410799, 0.0198437124, 0.890656054, 0.236604616, 0.388265431))
+                task.wait(.4)
+                fireproximityprompt(workspace.JungleIsland.DungeonPuzzlePiece.PuzzlePrompt)
+ 
+            elseif scaleX == 0.33 then
+                TeleportToCFrame(CFrame.new(-1055.74548, 5.37958527, -306.656342, -0.0325621367, -0.207822829, 0.977624476, 0.0831362903, 0.974190116, 0.209861815, -0.996006191, 0.0881095827, -0.0144441128))
+                task.wait(.4)
+                fireproximityprompt(workspace.DesertIsland.DungeonPuzzlePiece.PuzzlePrompt)
+ 
+            elseif scaleX == 0.50 then
+                TeleportToCFrame(CFrame.new(-313.635284, -2.38616896, -1188.1344, 0.92051065, 0, 0.390717506, 0, 1, 0, -0.390717506, 0, 0.92051065))
+                task.wait(.4)
+                fireproximityprompt(workspace.SnowIsland.DungeonPuzzlePiece.PuzzlePrompt)
+ 
+            elseif scaleX == 0.67 then
+                TeleportToCFrame(CFrame.new(1717.1012, 138.38591, -27.2578392, 0.989420116, 0.00180168322, -0.145067453, -0.00181423908, 0.999998331, 4.57420974e-05, 0.145067304, 0.000217928886, 0.989421785))
+                task.wait(.4)
+                fireproximityprompt(workspace.ShibuyaStation.DungeonPuzzlePiece.PuzzlePrompt)
+            elseif scaleX == 0.83 then
+                TeleportToCFrame(CFrame.new(-685.611206, 98.1761932, 1335.40051, 0.325435102, 0.00925869402, -0.945519149, -0.0284054689, 0.999596477, 1.14431605e-05, 0.94513768, 0.0268541873, 0.325566828))
+                task.wait(.4)
+                fireproximityprompt(workspace.HuecoMundo.DungeonPuzzlePiece.PuzzlePrompt)
+            end
+            return true
+        elseif Quest == "Prove Your Strength" then
+ 
+            Have = false
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                v.Name = v.Name:gsub("Boss" , "")
+                if table.find(BossList, v.Name) then
+                    Have = true
+                end
+            end
+            for i,v in pairs(workspace.NPCs:GetChildren()) do
+                v.Name = v.Name:gsub("Boss" , "")
+                if table.find(BossList, v.Name) then
+                    repeat task.wait()
+                        Player:EquipTool()
+                        TeleportToEnemy(v)
+ 
+                        task.spawn(function()
+                            Player:UpgradeStat()
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                        end)
+ 
+                    until not v:FindFirstChildOfClass("Humanoid") or v.Humanoid.Health <= 0 or _G.AutoFarm == false or v.Parent == nil or not v:FindFirstChild("HumanoidRootPart")
+                end
+            end
+ 
+            if Have == false then
+                -- hopserver
+ 
+                while wait(.5) do
+                print("Hopping Server...")
+                Teleport()
+                end
+ 
+ 
+            end
+ 
+            return true
+        else
+            if not _G.DONEUNLOCKEDQUEST then
+                local args = {
+                    "repeatable"
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAbandon"):FireServer(unpack(args))
+                task.wait(.2)
+                if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - workspace.ServiceNPCs.DungeonPortalsNPC.WorldPivot.Position).Magnitude > 50 then
+                TeleportToEnemy(workspace.ServiceNPCs.DungeonPortalsNPC)
+                    else
+                    game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = workspace.ServiceNPCs.DungeonPortalsNPC.WorldPivot
+                    if workspace.ServiceNPCs.DungeonPortalsNPC:FindFirstChild("HumanoidRootPart") and workspace.ServiceNPCs.DungeonPortalsNPC.HumanoidRootPart:FindFirstChild("DungeonNPCPrompt") then
+                        fireproximityprompt(workspace.ServiceNPCs.DungeonPortalsNPC.HumanoidRootPart.DungeonNPCPrompt)
+                    end
+                end
+ 
+                if game:GetService("Players").LocalPlayer.PlayerGui.DungeonTeleportUI.MainFrame.Visible == true then
+                    _G.DONEUNLOCKEDQUEST = true
+                    print("UNLOCKED")
+                end
+                return true
+            end
+        end
+    end
+end
+
+function Player:FarmDungeonFindRune()
+    _G.Autohop = true
+-- workspace.ActiveDungeonPortal
+    PlayerStats = Player:GetStats()
+    Level = game:GetService("Players").LocalPlayer.Data.Level.Value
+    DungeonKey = GetItemByName("Dungeon Key")
+    RuneLevel = PlayerStats.RuneProgression.Level
+    if RuneLevel < 50 and Level >= 8000 and DungeonKey and DungeonKey.quantity > 10 and Player:IsMeleeHave("Strongest In History") then
+        if not workspace:FindFirstChild("ActiveDungeonPortal") then
+            TeleportToEnemy(workspace.ServiceNPCs.DungeonPortalsNPC)
+            local args = {
+                "RuneDungeon"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RequestDungeonPortal"):FireServer(unpack(args))
+            return true
+        elseif workspace:FindFirstChild("ActiveDungeonPortal") then
+            TeleportToEnemy(workspace.ServiceNPCs.DungeonPortalsNPC)
+            return true
+        end
+    end
+end
+
+function Player:AutoHaki()
+    Quest = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text
+    Chake = game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Reward.RewardExp.CurrencyIndicator.CurrencyIndicator.Text
+    Level = game:GetService("Players").LocalPlayer.Data.Level.Value
+    Monny = game:GetService("Players").LocalPlayer.Data.Money.Value
+    Gems = game:GetService("Players").LocalPlayer.Data.Gems.Value
+ 
+ 
+    Player:GetHakiProgress()
+ 
+    if Quest == "Path to Haki 1" or Quest == "Path to Haki 2" or Quest == "Path to Haki Final" then
+ 
+        if not game:GetService("Players").LocalPlayer.Backpack:FindFirstChild("Combat")
+        and not game:GetService("Players").LocalPlayer.Character:FindFirstChild("Combat")
+        and (Player:IsSwordHave("Combat") or Player:IsMeleeHave("Combat")) then
+ 
+            local args = {"Equip","Combat"}
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("EquipWeapon"):FireServer(unpack(args))
+        end
+ 
+        for i,v in pairs(workspace.NPCs:GetChildren()) do
+            v.Name = v.Name:gsub("%d" , "")
+            if v.Name == "Thief" and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") then
+ 
+                repeat task.wait()
+                    task.spawn(function()
+                        Player:UpgradeStat()
+                        Player:EquipTool("Combat")
+                    end)
+ 
+                    TeleportToEnemy(v)
+ 
+                    if Quest == "Path to Haki 2" then
+                        local args = {"AutoSkillZ",true}
+                        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SettingsToggle"):FireServer(unpack(args))
+                    else
+                        game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                    end
+ 
+                until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0
+            elseif v.Name == "Thief" and not v:FindFirstChild("HumanoidRootPart") then
+                TeleportToEnemy(v)
+            end
+        end
+ 
+        return true
+ 
+    elseif Level >= 50 and not game.Players.LocalPlayer.Character["Right Arm"]:FindFirstChild("3") and Level > 1000 then
+        if Monny >= 250000 and Gems >= 250 then
+ 
+        else
+            return
+        end
+        TeleportToEnemy(workspace.ServiceNPCs.HakiQuestNPC)
+        local args = {"HakiQuestNPC"}
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAccept"):FireServer(unpack(args))
+        game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text = ""
+        if Quest == "Dungeon Discovery" or Quest == "Prove Your Strength" then
+            local args = {
+                "DungeonUnlock"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAbandon"):FireServer(unpack(args))
+            game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text = "None"
+        else
+            local args = {
+                "repeatable"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAbandon"):FireServer(unpack(args))
+        end
+ 
+        task.wait(.2)
+        local args = {"HakiQuestNPC"}
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAccept"):FireServer(unpack(args))
+        repeat task.wait()
+            if (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - workspace.ServiceNPCs.HakiQuestNPC.WorldPivot.Position).Magnitude > 50 then
+                TeleportToEnemy(workspace.ServiceNPCs.HakiQuestNPC)
+                local args = {"HakiQuestNPC"}
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAccept"):FireServer(unpack(args))
+            else
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = workspace.ServiceNPCs.HakiQuestNPC.WorldPivot
+            end
+        until workspace.ServiceNPCs.HakiQuestNPC:FindFirstChild("HumanoidRootPart") and workspace.ServiceNPCs.HakiQuestNPC.HumanoidRootPart:FindFirstChild("HakiQuestPrompt")
+        task.wait(.3)
+        local args = {"HakiQuestNPC"}
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAccept"):FireServer(unpack(args))
+        fireproximityprompt(workspace.ServiceNPCs.HakiQuestNPC.HumanoidRootPart.HakiQuestPrompt)
+        return true
+    end
+ 
+end
+ 
+game:GetService("ReplicatedStorage").RemoteEvents.HakiProgressionUpdate.OnClientEvent:Connect(function(...)
+    a,b = ...
+    _G.HakiProgress = a
+end)
+ 
+function Player:GetHakiProgress()
+    local args = {
+        "GetProgression"
+    }
+    game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("HakiRemote"):FireServer(unpack(args))
+ 
+    if typeof(_G.HakiProgress) == "table" and not game.Players.LocalPlayer.Character["Right Arm"]:FindFirstChild("3") then
+        local args = {
+            "Toggle"
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("HakiRemote"):FireServer(unpack(args))
+    end
+    return _G.HakiProgress
+end
+Ranks = {
+    "SS",
+    "SSS"
+}
+function Player:RerollStats()
+    Gems = game:GetService("Players").LocalPlayer.Data.Gems.Value
+    StatsData = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("GetStatRerollData"):InvokeServer()
+ 
+    if Gems > 10000 then
+        if not table.find(Ranks, StatsData.Stats.Luck.Rank) then
+            TeleportToEnemy(workspace.ServiceNPCs.RerollStatNPC)
+            local args = {
+                "Luck"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollSingleStat"):InvokeServer(unpack(args))
+            return true
+        elseif not table.find(Ranks, StatsData.Stats.CooldownReduction.Rank) then
+            TeleportToEnemy(workspace.ServiceNPCs.RerollStatNPC)
+            local args = {
+                "CooldownReduction"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollSingleStat"):InvokeServer(unpack(args))
+            return true
+        elseif not table.find(Ranks, StatsData.Stats.Damage.Rank) then
+            TeleportToEnemy(workspace.ServiceNPCs.RerollStatNPC)
+            local args = {
+                "Damage"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollSingleStat"):InvokeServer(unpack(args))
+            return true
+        elseif not table.find(Ranks, StatsData.Stats.CritDamage.Rank) then
+            TeleportToEnemy(workspace.ServiceNPCs.RerollStatNPC)
+            local args = {
+                "CritDamage"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollSingleStat"):InvokeServer(unpack(args))
+            return true
+        elseif not table.find(Ranks, StatsData.Stats.CritChance.Rank) then
+            TeleportToEnemy(workspace.ServiceNPCs.RerollStatNPC)
+            local args = {
+                "CritChance"
+            }
+            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("RerollSingleStat"):InvokeServer(unpack(args))
+            return true
+        end
+    end
+end
+
+function Player:KillBossTitles()
+ 
+end
+ 
+Traits = {
+    "Overlord",
+    "Cataclysm",
+    "Singularity",
+    "Celestial"
+}
+ 
+function Player:RerollTraits()
+    Quantity = GetItemByName("Trait Reroll") and GetItemByName("Trait Reroll").quantity or 0
+    if not table.find(Traits , Player:GetStats().Trait) and Quantity > 0 then
+        TeleportToEnemy(workspace.ServiceNPCs.TraitNPC)
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("TraitReroll"):FireServer()
+        local args = {
+            true
+        }
+        game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("TraitConfirm"):FireServer(unpack(args))
+        task.wait()
+        return true
+    end
+end
+ 
+if game.PlaceId == 99684056491472 or game.PlaceId == 75159314259063 then
+    _G.AutoDungeon = true
+    local player = game.Players.LocalPlayer
+    local char = player.Character or player.CharacterAdded:Wait()
+    local root = char:WaitForChild("HumanoidRootPart")
+ 
+    local speed = 5 -- ความเร็วหมุน (ยิ่งมากยิ่งเร็ว)
+ 
+    game:GetService("RunService").RenderStepped:Connect(function()
+        root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(speed), 0)
+    end)
+    task.spawn(function()
+        while _G.AutoDungeon do task.wait()
+            a,b = pcall(function()
+                Player:GetHakiProgress()
+    
+                if game:GetService("Players").LocalPlayer.PlayerGui.DungeonUI.ContentFrame.Actions.EasyDifficultyFrame.Visible == true then
+                    Ascend = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("GetAscendData"):InvokeServer()
+    
+                    if Ascend.level == 2 then
+                        local args = {
+                            "Easy"
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DungeonWaveVote"):FireServer(unpack(args))
+                    elseif Ascend.level == 3 then
+                        local args = {
+                            "Medium"
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DungeonWaveVote"):FireServer(unpack(args))
+                    end
+                elseif game:GetService("Players").LocalPlayer.PlayerGui.DungeonUI.ReplayDungeonFrameVisibleOnlyWhenClearingDungeon.Visible == true then
+                    local args = {
+                        true
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("SprintToggle"):FireServer(unpack(args))
+                    local args = {
+                        "sponsor"
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DungeonWaveReplayVote"):FireServer(unpack(args))
+                end
+    
+                if game.PlaceId == 99684056491472 then
+                    for i,v in pairs(workspace.NPCs:GetChildren()) do
+                        if string.find(v.Name,"DungeonNPC") and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            
+                            repeat task.wait(0.5) -- 🔥 ลดความถี่ (สำคัญมาก)
+
+                                task.spawn(function()
+                                    Player:EquipTool("Strongest In History")
+                                end)
+
+                                local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+                                local enemyHRP = v.HumanoidRootPart
+
+                                -- 🔥 เช็คระยะก่อน TP (กันวาร์ปรัว)
+                                if (hrp.Position - enemyHRP.Position).Magnitude > 15 then
+                                    hrp.CFrame = enemyHRP.CFrame * CFrame.new(0,0,3)
+                                end
+
+                                game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+
+                            until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0
+
+                            return true
+
+                        elseif string.find(v.Name,"DungeonNPC") and not v:FindFirstChild("HumanoidRootPart") then
+                            
+                            if v.PrimaryPart then
+                                local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+
+                                -- 🔥 TP เฉพาะตอนห่าง
+                                if (hrp.Position - v.PrimaryPart.Position).Magnitude > 15 then
+                                    hrp.CFrame = v.PrimaryPart.CFrame
+                                end
+                            end
+
+                            game:GetService("ReplicatedStorage"):WaitForChild("CombatSystem"):WaitForChild("Remotes"):WaitForChild("RequestHit"):FireServer()
+                            return true
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+    return
+end
+
+_G.AutoFarm = true
+task.spawn(function()
+    while _G.AutoFarm do task.wait(.1)
+    
+        a,b = pcall(function()
+            -- ขยะ
+            -- ขยะ
+            task.spawn(function()
+                OpenChest()
+                EquipBestRune()
+                EquipBestAccessories()
+                EquipBestArtifact()
+            end)
+    
+            if Player:RerollTraits() then print("RerollTraits is Running") return end
+            if Player:RerollStats() then print("RerollStats is Running") return end
+            if Player:AutoHaki() then print("AutoHaki is Running") return end
+            if ClanReroll() then print("ClanReroll is Running") return end
+            if RaceReroll() then print("RaceReroll is Running") return end
+            if Player:AutoDungeon() then print("AutoDungeon is Running") return end
+            if Player:FarmDungeonFindRune() then print("FarmDungeonFindRune is Running") return end
+            if Player:KillBossTitles() then print("KillBossTitles is Running") return end
+            if Player:AutoAscend() then print("AutoAscend is Running") return end
+            if Player:SwordStep() then print("SwordStep is Running") return end
+    
+            Quest , NameQuest = Player:GetQuest()
+    
+            if game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Visible == false then
+                local args = {
+                    NameQuest
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAccept"):FireServer(unpack(args))
+            else
+                if game:GetService("Players").LocalPlayer.PlayerGui.QuestUI.Quest.Quest.Holder.Content.QuestInfo.QuestTitle.QuestTitle.Text ~= Quest.title then
+                    local args = {
+                        "repeatable"
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("QuestAbandon"):FireServer(unpack(args))
+                end
+                KillEnemyByName(Quest.requirements[1].npcType)
+            end
+    
+        end)
+    
+        if b then
+            warn("Error: " .. tostring(b))
+        end
+    end
+end)
