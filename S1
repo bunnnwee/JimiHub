@@ -1,7 +1,6 @@
-repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer:FindFirstChild("Data")
 _G.AutoSkill = true
 _G.Autohop = true
-wait(20)
+repeat task.wait() until game:IsLoaded() and game:GetService("Players").LocalPlayer:FindFirstChild("Data")
 setfpscap(20)
 local args = {
 	"DisablePvP",
